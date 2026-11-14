@@ -19,6 +19,9 @@ until php artisan db:monitor --databases=mysql >/dev/null 2>&1; do
   sleep 2
 done
 
+echo "==> Schema inicial (solo si la base esta vacia)"
+php docker/load-schema.php
+
 echo "==> Migraciones"
 php artisan migrate --force
 

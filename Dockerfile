@@ -1,21 +1,14 @@
 FROM php:8.1-cli-alpine
 
-# Dependencias del sistema: cliente mysql (para cargar database/schema/mysql-schema.sql),
-# librerías para gd (dompdf), zip e intl.
+# Dependencias del sistema: librerías para gd (dompdf), zip e intl.
+# El schema dump se carga con docker/load-schema.php via PDO, asi que no hace
+# falta el cliente mysql de linea de comandos.
 RUN apk add --no-cache \
-        mysql-client \
         git unzip \
         libpng-dev libjpeg-turbo-dev freetype-dev \
         libzip-dev icu-dev oniguruma-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql gd zip intl bcmath mbstring opcache
-
-# El cliente mysql (MariaDB) exige verificar el certificado TLS y rechaza el
-# autofirmado de Railway. La red interna de Railway es privada, asi que se
-# desactiva TLS para el cliente CLI que Laravel usa al cargar el schema dump.
-RUN mkdir -p /etc/my.cnf.d \
-    && printf '[client]\nskip-ssl\nssl-verify-server-cert=0\n' > /etc/my.cnf.d/99-no-ssl.cnf \
-    && grep -q 'my.cnf.d' /etc/my.cnf 2>/dev/null || printf '!includedir /etc/my.cnf.d\n' >> /etc/my.cnf
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
