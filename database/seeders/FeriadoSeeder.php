@@ -15,13 +15,14 @@ class FeriadoSeeder extends Seeder
     {
         $startDate = Carbon::create(2025, 02, 01);
 
-        for ($i = 1; $i <= 5; $i++) {
-            $randomDays = rand(0, 60);
-            $feriadoDate = $startDate->copy()->addDays($randomDays);
+        // Offsets fijos y distintos: la columna fecha es unica, asi que fechas
+        // al azar hacian fallar el seed de forma intermitente.
+        $offsets = [3, 17, 24, 38, 52];
 
+        foreach ($offsets as $i => $days) {
             Feriado::create([
-                'fecha' => $feriadoDate->toDateString(),
-                'descripcion' => "Feriado de prueba #$i"
+                'fecha' => $startDate->copy()->addDays($days)->toDateString(),
+                'descripcion' => 'Feriado de prueba #' . ($i + 1),
             ]);
         }
     }
