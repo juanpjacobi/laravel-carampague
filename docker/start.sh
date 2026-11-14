@@ -1,8 +1,9 @@
 #!/bin/sh
 # Arranque del backend en Railway.
 # 1. Espera a que MySQL acepte conexiones.
-# 2. Corre migraciones (la primera vez carga database/schema/mysql-schema.sql).
-# 3. Siembra la base solo si todavia no tiene usuarios.
+# 2. Si RESET_DB_TOKEN cambio desde el ultimo arranque, vuelve la base a cero
+#    (docker/reset-db.sh) y marca el token como aplicado.
+# 3. Carga schema / migraciones / seeders si hacen falta (docker/prepare-db.sh).
 # 4. Cachea config y rutas y levanta el servidor en $PORT.
 set -e
 
@@ -19,18 +20,19 @@ until php artisan db:monitor --databases=mysql >/dev/null 2>&1; do
   sleep 2
 done
 
-echo "==> Schema inicial (solo si la base esta vacia)"
-php docker/load-schema.php
+set +e
+php docker/reset-token.php check
+RESET_STATUS=$?
+set -e
 
-echo "==> Migraciones"
-php artisan migrate --force
-
-USERS=$(php artisan tinker --execute='echo \App\Models\User::count();' 2>/dev/null | tail -n 1 | tr -d '[:space:]')
-if [ "$USERS" = "0" ]; then
-  echo "==> Base vacia: corriendo seeders"
-  php artisan db:seed --force
+if [ "$RESET_STATUS" -eq 10 ]; then
+  sh docker/reset-db.sh
+  php docker/reset-token.php mark
+elif [ "$RESET_STATUS" -ne 0 ]; then
+  echo "No se pudo evaluar RESET_DB_TOKEN (codigo $RESET_STATUS)."
+  exit 1
 else
-  echo "==> La base ya tiene $USERS usuarios, no se corren seeders"
+  sh docker/prepare-db.sh
 fi
 
 php artisan storage:link || true
